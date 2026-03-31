@@ -364,3 +364,89 @@ Dual budget system:
 7. **Decompiled source**: This is reverse-engineered from a bundled build —
    some patterns (React Compiler output, mangled names) reflect the build
    process rather than original source style.
+
+---
+
+## 8. Permission Modes Detail
+
+The permission system supports these modes:
+
+| Mode | Behavior |
+|------|----------|
+| `default` | Ask user for sensitive operations |
+| `acceptEdits` | Auto-accept file writes, ask for bash |
+| `bypassPermissions` | Auto-approve everything |
+| `plan` | Read-only planning mode |
+| `auto` | Classifier-based auto-approval |
+| `dontAsk` | Deny all but safe operations |
+| `bubble` | Internal SDK mode |
+
+Permission evaluation priority: **policy > bypass > hook pre-decision > classifier > ask**.
+
+---
+
+## 9. Tool Concurrency Model
+
+The `StreamingToolExecutor` partitions tools into concurrent vs serial execution:
+
+- **Read-only tools** (Glob, Grep, FileRead, ls): run concurrently (max 10, configurable
+  via `CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY`)
+- **Write tools** (Bash with mutations, FileEdit, FileWrite): run serially with
+  exclusive access
+- Each tool declares `isConcurrencySafe(input)` to indicate whether it can be parallelized
+- Prevents file corruption from parallel destructive operations
+
+---
+
+## 10. Sandbox Architecture
+
+Platform-specific sandboxing for shell command execution:
+
+| Platform | Sandbox |
+|----------|---------|
+| macOS | Sandbox.app profile |
+| Linux | Bubblewrap / AppArmor |
+| Windows | No sandbox (WSL option) |
+
+`shouldUseSandbox()` determines per-command whether to sandbox. `SandboxManager`
+handles the platform-specific setup and teardown.
+
+---
+
+## 11. Analytics & Observability
+
+- **1st-party telemetry**: OpenTelemetry exporter to Anthropic
+- **3rd-party analytics**: Datadog integration (subset of events)
+- **GrowthBook**: Feature flags + A/B testing
+- **Events tracked**: tool use, permission decisions, model calls (tokens/cost/latency),
+  errors, classifier results
+- **Privacy**: file paths stripped from most events; repo identified by hash only
+
+---
+
+## 12. Internal Codenames
+
+From the decompiled source and README:
+
+| Codename | Meaning |
+|----------|---------|
+| **Capybara** (v8) | Baseline architecture |
+| **Tengu** | Current version with streaming tool execution |
+| **Numbat** | Next-gen fully autonomous mode with proactive notifications |
+| **Fennec** | Opus 4.6 model |
+| **Kairos** | Assistant mode (always-on, no REPL) |
+
+---
+
+## 13. Missing in Public Build
+
+108 modules are stubbed out in the decompiled source (internal-only):
+
+- `daemon/main.js` — background daemon mode
+- `assistant/index.js` — Kairos assistant mode
+- `REPLTool` — interactive Python/Node REPL (ant-only)
+- `proactive/index.js` — proactive notification system
+- `coordinator/` — multi-agent orchestration
+- `bridge/` — always-on relay to claude.ai
+- `voice/` — voice input/output
+- Various workflow, template, and job classification modules
